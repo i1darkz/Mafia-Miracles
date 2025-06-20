@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>داركز | هوست اللعب الواقعي</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Arabic:wght@400;600&display=swap" rel="stylesheet">
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB2pdpsTkKtNHsxFkN6wmvJklL9lhmWPBE",
+      authDomain: "mafia-darkz-995bb.firebaseapp.com",
+      databaseURL: "https://mafia-darkz-995bb-default-rtdb.firebaseio.com",
+      projectId: "mafia-darkz-995bb",
+      storageBucket: "mafia-darkz-995bb.firebasestorage.app",
+      messagingSenderId: "555156171160",
+      appId: "1:555156171160:web:9e5cd8ab0e9ba7661423ed"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const sessionId = localStorage.getItem("sessionId");
+    const playersRef = ref(db, `sessions/${sessionId}/players`);
+
+    const playersList = document.getElementById("players");
+
+    onValue(playersRef, (snapshot) => {
+      playersList.innerHTML = "";
+      const data = snapshot.val();
+      if (data) {
+        Object.entries(data).forEach(([key, player]) => {
+          const div = document.createElement("div");
+          div.className = "player";
+          div.innerHTML = `<strong>${player.name}</strong> - <span>${player.role || '؟'}</span>`;
+          playersList.appendChild(div);
+        });
+      }
+    });
+
+    window.shuffleRoles = function () {
+      const roles = ["مافيا", "دكتور", "شايب"];
+      const playerCount = playersList.children.length;
+      for (let i = roles.length; i < playerCount; i++) roles.push("مواطن");
+      const shuffled = roles.sort(() => Math.random() - 0.5);
+
+      const updates = {};
+      Array.from(playersList.children).forEach((div, idx) => {
+        const name = div.querySelector("strong").textContent;
+        const key = name.replaceAll(" ", "_");
+        updates[`sessions/${sessionId}/players/${key}/role`] = shuffled[idx];
+      });
+
+      update(ref(db), updates);
+      alert("✅ تم توزيع الأدوار عشوائياً");
+    };
+  </script>
+  <style>
+    body {
+      background: #0e0e0e;
+      color: white;
+      font-family: 'IBM Plex Arabic', sans-serif;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+    h1 {
+      color: #f92c2c;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 12px 24px;
+      background: #f92c2c;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1em;
+      margin-bottom: 20px;
+      cursor: pointer;
+    }
+    #players {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+    }
+    .player {
+      background: #1f1f1f;
+      padding: 12px 20px;
+      border-radius: 8px;
+      width: 80%;
+      max-width: 400px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 1.1em;
+    }
+  </style>
+</head>
+<body>
+  <h1>إدارة الجلسة الواقعية</h1>
+  <button onclick="shuffleRoles()">🔀 توزيع الأدوار</button>
+  <div id="players">جارٍ تحميل اللاعبين...</div>
+</body>
+</html>

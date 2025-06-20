@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Darkz Mafia | هوست عن بعد</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Arabic:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'IBM Plex Arabic', sans-serif;
+      background-color: #0e0e0e;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    h1 {
+      color: #f92c2c;
+      margin-bottom: 10px;
+    }
+    #sessionDisplay {
+      color: #aaa;
+      margin-bottom: 20px;
+      font-size: 1em;
+    }
+    .player {
+      background: #1a1a1a;
+      margin: 10px;
+      padding: 12px;
+      border-radius: 8px;
+    }
+    button {
+      background-color: #f92c2c;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      margin: 10px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    #resultDisplay, #deathNotice {
+      margin-top: 20px;
+      font-size: 1.2em;
+      color: #ffcc00;
+    }
+  </style>
+</head>
+<body>
+  <h1>📢 تحكم الهوست (اللعب عن بعد)</h1>
+  <div id="sessionDisplay">اسم الجلسة...</div>
+  <button onclick="startGame()">🚀 بدء اللعبة وتوزيع الأدوار</button>
+  <button onclick="setVoting()">🗳️ بدء التصويت</button>
+  <button onclick="endVoting()">☠️ إنهاء التصويت وقتل الأعلى</button>
+  <button onclick="resetGame()">🔄 إعادة اللعب</button>
+  <div id="players">🟡 جاري تحميل اللاعبين...</div>
+  <div id="deathNotice"></div>
+  <div id="resultDisplay"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getDatabase, ref, onValue, update, get, set } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB2pdpsTkKtNHsxFkN6wmvJklL9lhmWPBE",
+      authDomain: "mafia-darkz-995bb.firebaseapp.com",
+      databaseURL: "https://mafia-darkz-995bb-default-rtdb.firebaseio.com",
+      projectId: "mafia-darkz-995bb",
+      storageBucket: "mafia-darkz-995bb.firebasestorage.app",
+      messagingSenderId: "555156171160",
+      appId: "1:555156171160:web:9e5cd8ab0e9ba7661423ed"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const sessionId = localStorage.getItem("sessionId") || "";
+    document.getElementById("sessionDisplay").textContent = `🆔 اسم الجلسة: ${sessionId}`;
+
+    const playersRef = ref(db, `sessions/${sessionId}/players`);
+    const statusRef = ref(db, `sessions/${sessionId}/status`);
+
+    const playersList = document.getElementById("players");
+    const deathNotice = document.getElementById("deathNotice");
+    const resultDisplay = document.getElementById("resultDisplay");
+
+    onValue(playersRef, (snapshot) => {
+      playersList.innerHTML = "";
+      const data = snapshot.val();
+      if (data) {
+        Object.entries(data).forEach(([key, val]) => {
+          const div = document.createElement("div");
+          div.className = "player";
+          div.innerHTML = `<strong>${val.name}</strong> | ${val.role || '؟'}${val.votedFor ? ` 🗳️ صوت لـ ${val.votedFor}` : ''}${val.alive === false ? ' ☠️' : ''}`;
+          playersList.appendChild(div);
+        });
+      }
+    });
+
+    window.startGame = async function () {
+      const snapshot = await get(playersRef);
+      const data = snapshot.val();
+      if (!data) return alert("❌ لا يوجد لاعبين");
+
+      const playerKeys = Object.keys(data);
+      const roles = generateRoles(playerKeys.length);
+
+      playerKeys.forEach((key, index) => {
+        const playerRef = ref(db, `sessions/${sessionId}/players/${key}`);
+        set(playerRef, {
+          ...data[key],
+          role: roles[index],
+          votedFor: null,
+          alive: true
+        });
+      });
+
+      update(statusRef, { state: "started" });
+    }
+
+    function generateRoles(count) {
+      const roles = ["مافيا", "دكتور", "شايب"];
+      while (roles.length < count) roles.push("مواطن");
+      return shuffle(roles);
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    window.setVoting = () => update(statusRef, { state: "voting" });
+
+    window.endVoting = async () => {
+      const snap = await get(playersRef);
+      const data = snap.val();
+      const votes = {};
+      Object.entries(data || {}).forEach(([key, p]) => {
+        if (p.votedFor) {
+          votes[p.votedFor] = (votes[p.votedFor] || 0) + 1;
+        }
+      });
+
+      const sorted = Object.entries(votes).sort((a, b) => b[1] - a[1]);
+      if (sorted.length > 0) {
+        const [victimKey] = sorted[0];
+        const deadRef = ref(db, `sessions/${sessionId}/players/${victimKey}`);
+        await update(deadRef, { alive: false });
+
+        // Show notice
+        const victimName = data[victimKey]?.name || victimKey;
+        deathNotice.textContent = `☠️ تم قتل اللاعب: ${victimName}`;
+      } else {
+        deathNotice.textContent = `❌ لا يوجد تصويت كافٍ`;
+      }
+
+      update(statusRef, { state: "ended" });
+      checkWinner();
+    }
+
+    window.resetGame = async () => {
+      const snap = await get(playersRef);
+      Object.keys(snap.val() || {}).forEach(key => {
+        const refPlayer = ref(db, `sessions/${sessionId}/players/${key}`);
+        update(refPlayer, {
+          role: null,
+          votedFor: null,
+          alive: true
+        });
+      });
+      update(statusRef, { state: "waiting" });
+      deathNotice.textContent = "";
+      resultDisplay.textContent = "";
+    }
+
+    async function checkWinner() {
+      const snap = await get(playersRef);
+      const data = snap.val();
+      if (!data) return;
+
+      let mafia = 0;
+      let citizens = 0;
+
+      Object.values(data).forEach(p => {
+        if (p.alive === false) return;
+        if (p.role === "مافيا") mafia++;
+        else citizens++;
+      });
+
+      if (mafia === 0) {
+        resultDisplay.textContent = "🧑‍🌾 فاز المواطنون!";
+      } else if (mafia >= citizens) {
+        resultDisplay.textContent = "🏴 فازت المافيا!";
+      } else {
+        resultDisplay.textContent = "⭕ لم تنتهِ اللعبة بعد";
+      }
+    }
+  </script>
+</body>
+</html>

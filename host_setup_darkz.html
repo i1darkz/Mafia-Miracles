@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>إعداد جلسة داركز مافيا</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Arabic:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background-color: #0e0e0e;
+      color: white;
+      font-family: 'IBM Plex Arabic', sans-serif;
+      text-align: center;
+      padding: 50px;
+    }
+    input, select {
+      padding: 10px;
+      margin: 10px;
+      width: 250px;
+      border-radius: 8px;
+      border: none;
+      font-size: 16px;
+    }
+    button {
+      background-color: #f92c2c;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    #message {
+      margin-top: 20px;
+      color: lightgreen;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔧 إعداد الجلسة</h1>
+  <input type="text" id="sessionId" placeholder="رقم الجلسة">
+  <input type="text" id="hostName" placeholder="اسم الهوست">
+  <input type="number" id="mafiaCount" placeholder="عدد المافيا" min="1" max="10">
+  <br>
+  <button onclick="saveSession()">💾 حفظ وبدء اللعبة</button>
+  <div id="message"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB2pdpsTkKtNHsxFkN6wmvJklL9lhmWPBE",
+      authDomain: "mafia-darkz-995bb.firebaseapp.com",
+      databaseURL: "https://mafia-darkz-995bb-default-rtdb.firebaseio.com",
+      projectId: "mafia-darkz-995bb",
+      storageBucket: "mafia-darkz-995bb.appspot.com",
+      messagingSenderId: "555156171160",
+      appId: "1:555156171160:web:9e5cd8ab0e9ba7661423ed"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    function saveSession() {
+      const sessionId = document.getElementById("sessionId").value.trim();
+      const hostName = document.getElementById("hostName").value.trim();
+      const mafiaCount = parseInt(document.getElementById("mafiaCount").value);
+
+      if (!sessionId || !hostName || !mafiaCount) {
+        document.getElementById("message").textContent = "❌ يرجى ملء جميع الحقول";
+        return;
+      }
+
+      const sessionRef = ref(db, `sessions/${sessionId}`);
+      set(sessionRef, {
+        hostName,
+        mafiaCount,
+        status: {
+          state: "waiting"
+        },
+        players: {}
+      }).then(() => {
+        localStorage.setItem("sessionId", sessionId);
+        window.location.href = "host_online_darkz.html";
+      });
+    }
+  </script>
+</body>
+</html>
